@@ -1,0 +1,140 @@
+---
+- name: Update web servers
+  hosts: myservers
+  become: true
+  become_method: sudo
+
+
+  tasks: 
+    - name: Update apt repository 
+      ansible.builtin.apt: 
+        name  : "*" 
+        state: latest 
+        update_cache: true 
+        autoclean: true 
+
+    - name: Install unzip  
+      ansible.builtin.apt: 
+        name: unzip 
+        state: latest 
+        update_cache: yes 
+
+    - name: Install Apache/Ensure apache is at the latest version 
+      ansible.builtin.apt: 
+        name: apache2 
+        state: latest 
+        update_cache: yes 
+
+    - name: Start and enable apache service 
+      ansible.builtin.service: 
+        name: apache2 
+        state: started 
+        enabled: yes 
+
+    - name: Install MariaDB and dependency 
+      ansible.builtin.apt:
+        name:
+          - mariadb-server  
+        state: latest
+        update_cache: yes 
+
+    - name: Install pip
+      ansible.builtin.apt:
+        name: python3-pip
+        state: present
+
+    - name: Install PyMySQL
+      ansible.builtin.pip:
+        name: pymysql
+        state: present 
+
+    - name: Install PHP and dependencies
+      ansible.builtin.apt:
+        name: 
+          - php 
+          - php-curl 
+          - php-gd 
+          - php-mbstring 
+          - php-xml 
+          - php-xmlrpc 
+          - php-soap 
+          - php-intl 
+          - php-zip 
+          - libapache2-mod-php 
+          - php-mysql 
+        state: latest
+        update_cache: yes  
+
+    - name: Start and enable MariaDB service
+      ansible.builtin.service:
+        name: mariadb 
+        state: started 
+        enabled: true 
+
+    - name: Set root password
+      community.mysql.mysql_user:
+        name: root
+        password: zainab 
+        host: localhost 
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        login_user: root 
+        login_password: 'zainab'
+        state: present 
+        check_implicit_admin: true 
+
+    - name: Create new mysql user "zainab" 
+      community.mysql.mysql_user: 
+        login_unix_socket: /var/run/mysqld/mysqld.sock 
+        login_password: 'zainab' 
+        name: zainab 
+        password: zainab 
+        priv: '*.*:ALL' 
+        state: present 
+
+    - name: Create new database "wordpress" 
+      community.mysql.mysql_db:
+        name: wordpress 
+        state: present 
+        login_user: zainab 
+        login_password: zainab 
+        login_unix_socket: /var/run/mysqld/mysqld.sock 
+
+    - name: Install Wordpress app by copying app directory from to master to slave machine  
+      ansible.builtin.copy:
+        src: /home/vagrant/mini-project/wordpress.zip
+        dest: /var/www/html/wordpress.zip 
+
+    - name: Unzip wordpress app 
+      ansible.builtin.command:
+        chdir: /var/www/html 
+        cmd: sudo unzip wordpress.zip 
+
+    - name: Change file ownership   
+      ansible.builtin.command: 
+        chdir: /var/www/html/wordpress/ 
+        cmd: sudo chown -R www-data:www-data /var/www/html/wordpress 
+
+    - name: Change file permissions   
+      ansible.builtin.command: 
+        chdir: /var/www/html/wordpress/ 
+        cmd: sudo chmod -R 775 /var/www/html/wordpress 
+
+    - name: Create an Apache virtual host configuration file for WordPress by copying from master to slave machine 
+      ansible.builtin.copy:
+        src: /home/vagrant/mini-project/wordpress.conf
+        dest: /etc/apache2/sites-available/wordpress.conf 
+
+    - name: Activate the Apache virtual host
+      ansible.builtin.command: 
+        chdir: /etc/apache2/sites-available/
+        cmd: a2ensite wordpress.conf 
+
+    - name: Rewrite module 
+      ansible.builtin.command: 
+        chdir: /etc/apache2/sites-available/
+        cmd: sudo a2enmod rewrite  
+
+    - name: Restart apache service 
+      ansible.builtin.service: 
+        name: apache2
+        state: restarted 
