@@ -4,17 +4,21 @@ pipeline {
     stages {
         stage('Build') {
             steps {
-                echo 'Building..'
+                sh 'terraform init' 
+                sh 'terraform plan' 
+                sh 'terraform apply -y' 
             }
-        }
-        stage('Test') {
-            steps {
-                echo 'Testing..'
-            }
-        }
+        } 
+
+        // stage('Test') {
+        //     steps {
+        //         echo 'Testing..'
+        //     }
+        // } 
+
         stage('Deploy') {
             steps {
-                echo 'Deploying....'
+                sh 'ansible playbook playbook.yml -y'
             }
         }
     }
